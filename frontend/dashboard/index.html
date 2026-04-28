@@ -8,16 +8,24 @@
 </head>
 <body class="page-wrap">
 
-<nav>
-  <span class="logo">🍺 Cachoeira Bar</span>
-  <a href="../recepcao/">Recepção</a>
-  <a href="../producao/">Produção</a>
-  <a href="../expedicao/">Expedição</a>
-  <a href="../cadastro/">Cadastro</a>
-  <span class="spacer"></span>
-  <span class="user-info" id="user-info"></span>
-  <button class="btn-logout" onclick="AUTH.logout()">Sair</button>
-</nav>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <img src="/static/logo.png" alt="Cachoeira Bar" class="sidebar-logo">
+    <button class="sidebar-toggle" id="sidebar-toggle">☰</button>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/recepcao/" class="nav-item" title="Recepção"><span class="nav-icon">🪑</span><span class="nav-label">Recepção</span></a>
+    <a href="/producao/" class="nav-item" title="Produção"><span class="nav-icon">👨‍🍳</span><span class="nav-label">Produção</span></a>
+    <a href="/expedicao/" class="nav-item" title="Expedição"><span class="nav-icon">🚚</span><span class="nav-label">Expedição</span></a>
+    <a href="/dashboard/" class="nav-item" title="Dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+    <a href="/cadastro/" class="nav-item" title="Cadastro"><span class="nav-icon">⚙️</span><span class="nav-label">Cadastro</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user"><span class="nav-icon">👤</span><span class="nav-label" id="user-info"></span></div>
+    <button class="sidebar-logout" onclick="AUTH.logout()"><span class="nav-icon">🚪</span><span class="nav-label">Sair</span></button>
+    <div data-rt-status class="rt-status">● Conectando…</div>
+  </div>
+</aside>
 
 <main>
   <div class="flex items-center gap-2" style="margin-bottom:1.2rem;flex-wrap:wrap">
@@ -60,6 +68,7 @@
 <script>
 AUTH.require();
 document.getElementById("user-info").textContent = AUTH.getUser()?.nome || "";
+(function(){const sb=document.getElementById('sidebar'),btn=document.getElementById('sidebar-toggle');if(localStorage.getItem('cb_sb')==='1')sb.classList.add('collapsed');btn.addEventListener('click',()=>{sb.classList.toggle('collapsed');localStorage.setItem('cb_sb',sb.classList.contains('collapsed')?'1':'0');});document.querySelectorAll('.nav-item').forEach(a=>{try{if(location.pathname.startsWith(new URL(a.href).pathname))a.classList.add('active');}catch(e){}});})();
 
 let abaAtiva = "interno";
 
