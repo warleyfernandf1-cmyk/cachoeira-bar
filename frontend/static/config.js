@@ -1,9 +1,9 @@
-// ─── Altere antes do deploy ────────────────────────────────────────────────
+// ─── Altere SUPABASE_URL e SUPABASE_KEY com os valores do seu projeto ───────
 const CONFIG = {
-  // URL da API no Vercel (mesma origin em produção: "")
-  API: "",   // ex em dev local: "http://localhost:8000/api" | em produção: "" (mesmo domínio)
+  // Em produção (Vercel) a API está na mesma origin — deixe vazio
+  API: "",
 
   // Supabase — Project Settings > API
-  SUPABASE_URL: "https://SEU_PROJETO.supabase.co",
-  SUPABASE_KEY: "eyJ...",  // anon/public key (segura para expor no frontend)
+  SUPABASE_URL: "https://SEU_PROJETO.supabase.co",   // ← preencher
+  SUPABASE_KEY: "eyJ...",                             // ← preencher (anon/public key)
 };
