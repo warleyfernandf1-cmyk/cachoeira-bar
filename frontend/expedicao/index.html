@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expedição — Cachoeira Bar</title>
+  <link rel="stylesheet" href="../static/style.css">
+</head>
+<body class="page-wrap">
+
+<nav>
+  <span class="logo">🍺 Cachoeira Bar</span>
+  <span class="spacer"></span>
+  <span class="user-info" id="user-info"></span>
+  <button class="btn-logout" onclick="AUTH.logout()">Sair</button>
+</nav>
+
+<main>
+  <div class="flex items-center justify-between" style="margin-bottom:1.2rem">
+    <h1>Expedição</h1>
+    <div data-rt-status style="font-size:.75rem;color:var(--muted)">● Conectando…</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+    <div>
+      <h2 style="color:var(--success);margin-bottom:.8rem">✔ Prontos</h2>
+      <div id="lista-prontos"></div>
+    </div>
+    <div>
+      <h2 style="color:var(--blue);margin-bottom:.8rem">🚚 Em Entrega</h2>
+      <div id="lista-entrega"></div>
+    </div>
+  </div>
+</main>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../static/config.js"></script>
+<script src="../static/auth.js"></script>
+<script>
+AUTH.require("administrador", "garcom");
+document.getElementById("user-info").textContent = AUTH.getUser()?.nome || "";
+
+async function carregar() {
+  const pedidos = await apiFetch("/expedicao");
+  renderLista("lista-prontos", pedidos.filter(p => p.status === "pronto"),     "pronto");
+  renderLista("lista-entrega", pedidos.filter(p => p.status === "em_entrega"), "em_entrega");
+}
+
+function renderLista(elId, pedidos, status) {
+  const el = document.getElementById(elId);
+  if (!pedidos.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:1.5rem">Nenhum pedido</div>'; return;
+  }
+  el.innerHTML = pedidos.map(p => `
+    <div class="card" style="margin-bottom:.8rem">
+      <div class="expedicao-card">
+        <div class="expedicao-info">
+          <div style="font-size:1.4rem;font-weight:800">${p.codigo}</div>
+          <div style="color:var(--muted)">Mesa ${p.mesa} · ${tempoEspera(p.pronto_at || p.created_at)}</div>
+          <div class="text-success" style="font-weight:600">
+            R$ ${parseFloat(p.valor_total).toFixed(2).replace(".",",")}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.4rem">
+          ${status === "pronto" ? `<button class="btn-primary btn-sm" onclick="entregar(${p.id})">🚚 Em Entrega</button>` : ""}
+          <button class="btn-success btn-sm" onclick="finalizar(${p.id})">✔ Finalizar</button>
+        </div>
+      </div>
+    </div>`).join("");
+}
+
+function tempoEspera(iso) {
+  if (!iso) return "";
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  return `${m} min atrás`;
+}
+
+async function entregar(id) {
+  try { await apiFetch(`/expedicao/${id}/entregar`, { method:"PUT" }); toast("Em entrega!", "success"); carregar(); }
+  catch (e) { toast(e.message, "error"); }
+}
+
+async function finalizar(id) {
+  try { await apiFetch(`/expedicao/${id}/finalizar`, { method:"PUT" }); toast("Finalizado!", "success"); carregar(); }
+  catch (e) { toast(e.message, "error"); }
+}
+
+AUTH.conectarRealtime(() => carregar());
+
+function toast(msg, tipo = "success") {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.className = `toast ${tipo}`; el.style.display = "block";
+  setTimeout(() => { el.style.display = "none"; }, 3000);
+}
+
+carregar();
+</script>
+</body>
+</html>

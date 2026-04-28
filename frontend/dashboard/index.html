@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Cachoeira Bar</title>
+  <link rel="stylesheet" href="../static/style.css">
+</head>
+<body class="page-wrap">
+
+<nav>
+  <span class="logo">🍺 Cachoeira Bar</span>
+  <a href="../recepcao/">Recepção</a>
+  <a href="../producao/">Produção</a>
+  <a href="../expedicao/">Expedição</a>
+  <a href="../cadastro/">Cadastro</a>
+  <span class="spacer"></span>
+  <span class="user-info" id="user-info"></span>
+  <button class="btn-logout" onclick="AUTH.logout()">Sair</button>
+</nav>
+
+<main>
+  <div class="flex items-center gap-2" style="margin-bottom:1.2rem;flex-wrap:wrap">
+    <h1 style="margin:0">Dashboard</h1>
+    <div class="dashboard-tabs">
+      <button class="dashboard-tab active" onclick="mudarAba('interno')">Interno</button>
+      <button class="dashboard-tab"        onclick="mudarAba('externo')">Painel Externo</button>
+    </div>
+    <span class="spacer"></span>
+    <div data-rt-status style="font-size:.75rem;color:var(--muted)">● Conectando…</div>
+  </div>
+
+  <div id="aba-interno">
+    <div class="stats-grid" id="stats-grid"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+      <div class="card">
+        <h2 style="margin-bottom:.8rem">⏱ Tempo por Setor (hoje)</h2>
+        <div id="setor-tempos"></div>
+      </div>
+      <div class="card">
+        <h2 style="margin-bottom:.8rem">🔴 Pedidos Atrasados</h2>
+        <div id="atrasados-lista"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="aba-externo" style="display:none">
+    <div style="text-align:center;margin-bottom:1.2rem;color:var(--muted);font-size:.85rem">
+      Atualizado em tempo real via Supabase Realtime
+    </div>
+    <div class="painel-externo" id="painel-externo"></div>
+  </div>
+</main>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../static/config.js"></script>
+<script src="../static/auth.js"></script>
+<script>
+AUTH.require();
+document.getElementById("user-info").textContent = AUTH.getUser()?.nome || "";
+
+let abaAtiva = "interno";
+
+function mudarAba(aba) {
+  abaAtiva = aba;
+  document.getElementById("aba-interno").style.display = aba === "interno" ? "block" : "none";
+  document.getElementById("aba-externo").style.display = aba === "externo" ? "block" : "none";
+  document.querySelectorAll(".dashboard-tab").forEach((t, i) =>
+    t.classList.toggle("active", (i === 0 && aba === "interno") || (i === 1 && aba === "externo"))
+  );
+}
+
+const NOMES_SETOR  = { balcao_01:"Balcão 01", balcao_02:"Balcão 02", balcao_03:"Balcão 03", churrasqueira:"Churrasqueira" };
+const STATUS_LABEL = { em_producao:"EM PRODUÇÃO", pronto:"PRONTO", em_entrega:"EM ENTREGA", atrasado:"ATRASADO" };
+
+async function carregar() {
+  try {
+    const d = await apiFetch("/dashboard");
+    renderStats(d.stats);
+    renderSetorTempos(d.por_setor);
+    renderAtrasados(d.pedidos_ativos.filter(p => p.status === "atrasado"));
+    renderPainelExterno(d.pedidos_ativos);
+  } catch {}
+}
+
+function renderStats(s) {
+  document.getElementById("stats-grid").innerHTML = [
+    { label:"Pedidos Hoje",  value: s.total_hoje,          color:"var(--primary)" },
+    { label:"Em Produção",   value: s.em_producao,         color:"var(--warning)" },
+    { label:"Prontos",       value: s.prontos,             color:"var(--success)" },
+    { label:"Em Entrega",    value: s.em_entrega,          color:"var(--blue)" },
+    { label:"Finalizados",   value: s.finalizados,         color:"var(--muted)" },
+    { label:"Tempo Médio",   value: `${s.tempo_medio_minutos}min`, color:"var(--text)" },
+  ].map(i => `
+    <div class="stat-card">
+      <div class="stat-value" style="color:${i.color}">${i.value}</div>
+      <div class="stat-label">${i.label}</div>
+    </div>`).join("");
+}
+
+function renderSetorTempos(por_setor) {
+  const el = document.getElementById("setor-tempos");
+  const entries = Object.entries(por_setor);
+  el.innerHTML = entries.length
+    ? entries.map(([s, t]) => `
+        <div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border)">
+          <span>${NOMES_SETOR[s] || s}</span><strong>${t} min</strong>
+        </div>`).join("")
+    : '<div class="text-muted">Nenhum dado hoje</div>';
+}
+
+function renderAtrasados(lista) {
+  document.getElementById("atrasados-lista").innerHTML = lista.length
+    ? lista.map(p => `
+        <div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border)">
+          <span class="text-danger"><strong>${p.codigo}</strong> — Mesa ${p.mesa}</span>
+          <span class="text-danger">${p.elapsed_min} min</span>
+        </div>`).join("")
+    : '<div class="text-success">Nenhum atraso ✔</div>';
+}
+
+function renderPainelExterno(pedidos) {
+  document.getElementById("painel-externo").innerHTML = pedidos.length
+    ? pedidos.map(p => `
+        <div class="painel-card ${p.status}">
+          <div class="painel-codigo">${p.codigo}</div>
+          <div class="painel-mesa">Mesa ${p.mesa}</div>
+          <div class="painel-status">${STATUS_LABEL[p.status] || p.status}</div>
+          <div style="font-size:.8rem;color:var(--muted);margin-top:.3rem">
+            Estimado: ${p.tempo_estimado} min · Decorrido: ${p.elapsed_min} min
+          </div>
+        </div>`).join("")
+    : '<div class="empty-state" style="grid-column:1/-1">Nenhum pedido em andamento</div>';
+}
+
+AUTH.conectarRealtime(() => carregar());
+
+carregar();
+setInterval(carregar, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recepção — Cachoeira Bar</title>
+  <link rel="stylesheet" href="../static/style.css">
+</head>
+<body class="page-wrap">
+
+<nav>
+  <span class="logo">🍺 Cachoeira Bar</span>
+  <a href="../dashboard/">Dashboard</a>
+  <span class="spacer"></span>
+  <span class="user-info" id="user-info"></span>
+  <button class="btn-logout" onclick="AUTH.logout()">Sair</button>
+</nav>
+
+<main>
+  <!-- Seleção de mesa -->
+  <div id="view-mesas">
+    <div class="flex items-center justify-between mt-1" style="margin-bottom:1rem">
+      <h1>Selecione a Mesa</h1>
+      <div data-rt-status style="font-size:.75rem;color:var(--muted)">● Conectando…</div>
+    </div>
+    <div class="mesas-grid" id="mesas-grid"></div>
+  </div>
+
+  <!-- Pedido de uma mesa -->
+  <div id="view-pedido" style="display:none">
+    <div class="flex items-center gap-2" style="margin-bottom:1rem">
+      <button class="btn-outline btn-sm" onclick="voltarMesas()">← Voltar</button>
+      <h1 id="pedido-titulo">Novo Pedido</h1>
+    </div>
+    <div class="recepcao-layout">
+
+      <!-- Catálogo -->
+      <div class="card" style="display:flex;flex-direction:column;overflow:hidden">
+        <div class="cat-tabs" id="cat-tabs">
+          <button class="cat-tab active" data-cat="almoco"  onclick="filtrarCategoria('almoco')">🍽 Almoço</button>
+          <button class="cat-tab"        data-cat="petisco" onclick="filtrarCategoria('petisco')">🍗 Petisco</button>
+          <button class="cat-tab"        data-cat="bebida"  onclick="filtrarCategoria('bebida')">🍺 Bebida</button>
+        </div>
+        <div class="produto-list" id="produto-list"></div>
+      </div>
+
+      <!-- Carrinho -->
+      <div class="card carrinho" style="gap:.5rem">
+        <h2>Carrinho</h2>
+        <div class="cart-items" id="cart-items">
+          <div class="empty-state" id="cart-empty">Nenhum item adicionado</div>
+        </div>
+        <hr class="divider">
+        <div class="form-group" style="margin-bottom:.5rem">
+          <label class="form-label">Observação (opcional)</label>
+          <textarea id="observacao" rows="2" placeholder="Ex: sem cebola…"></textarea>
+        </div>
+        <div class="cart-total">
+          <div class="cart-total-row">
+            <span>Total</span>
+            <span class="text-success" id="cart-total">R$ 0,00</span>
+          </div>
+          <button class="btn-success btn-lg" id="btn-confirmar" onclick="confirmarPedido()" disabled>
+            ✔ Confirmar Pedido
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../static/config.js"></script>
+<script src="../static/auth.js"></script>
+<script>
+AUTH.require("administrador", "recepcionista");
+document.getElementById("user-info").textContent = AUTH.getUser()?.nome || "";
+
+let mesaSelecionada = null;
+let produtos        = [];
+let categoriaAtiva  = "almoco";
+let carrinho        = {};
+
+// Realtime: recarrega mesas quando pedido é criado/atualizado
+AUTH.conectarRealtime(() => {
+  if (document.getElementById("view-mesas").style.display !== "none") carregarMesas();
+});
+
+async function carregarMesas() {
+  const rows = await apiFetch("/mesas");
+  const grid = document.getElementById("mesas-grid");
+  grid.innerHTML = "";
+  rows.forEach(m => {
+    const btn = document.createElement("button");
+    btn.className = `mesa-btn ${m.status}`;
+    btn.innerHTML = `${m.numero}<span class="mesa-status">${m.status}</span>`;
+    btn.onclick = () => selecionarMesa(m);
+    grid.appendChild(btn);
+  });
+}
+
+function selecionarMesa(mesa) {
+  mesaSelecionada = mesa;
+  carrinho = {};
+  document.getElementById("pedido-titulo").textContent = `Mesa ${mesa.numero}`;
+  document.getElementById("view-mesas").style.display  = "none";
+  document.getElementById("view-pedido").style.display = "block";
+  carregarProdutos();
+  renderCarrinho();
+  filtrarCategoria("almoco");
+}
+
+function voltarMesas() {
+  document.getElementById("view-pedido").style.display = "none";
+  document.getElementById("view-mesas").style.display  = "block";
+  carregarMesas();
+}
+
+async function carregarProdutos() {
+  produtos = await apiFetch("/produtos");
+  renderProdutos();
+}
+
+function filtrarCategoria(cat) {
+  categoriaAtiva = cat;
+  document.querySelectorAll(".cat-tab").forEach(t => t.classList.toggle("active", t.dataset.cat === cat));
+  renderProdutos();
+}
+
+function renderProdutos() {
+  const lista     = document.getElementById("produto-list");
+  const filtrados = produtos.filter(p => p.categoria === categoriaAtiva);
+  const SETORES   = { balcao_01:"Balcão 01", balcao_02:"Balcão 02", balcao_03:"Balcão 03", churrasqueira:"Churrasqueira" };
+  if (!filtrados.length) {
+    lista.innerHTML = '<div class="empty-state">Nenhum produto nesta categoria</div>'; return;
+  }
+  lista.innerHTML = filtrados.map(p => `
+    <div class="produto-item">
+      <div>
+        <div class="produto-nome">${p.nome}</div>
+        <div class="produto-setor-tag">${SETORES[p.setor] || p.setor}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.7rem">
+        <span class="produto-preco">R$ ${parseFloat(p.preco).toFixed(2).replace(".",",")}</span>
+        <button class="btn-primary btn-sm" onclick="adicionarItem(${p.id})">+ Add</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function adicionarItem(produtoId) {
+  const p = produtos.find(x => x.id === produtoId);
+  if (!p) return;
+  if (!carrinho[produtoId]) carrinho[produtoId] = { produto: p, quantidade: 0 };
+  carrinho[produtoId].quantidade++;
+  renderCarrinho();
+}
+
+function alterarQtd(produtoId, delta) {
+  if (!carrinho[produtoId]) return;
+  carrinho[produtoId].quantidade += delta;
+  if (carrinho[produtoId].quantidade <= 0) delete carrinho[produtoId];
+  renderCarrinho();
+}
+
+function renderCarrinho() {
+  const items      = Object.values(carrinho);
+  const emptyEl    = document.getElementById("cart-empty");
+  const lista      = document.getElementById("cart-items");
+  const totalEl    = document.getElementById("cart-total");
+  const confirmBtn = document.getElementById("btn-confirmar");
+
+  confirmBtn.disabled = !items.length;
+  emptyEl.style.display = items.length ? "none" : "block";
+
+  if (!items.length) {
+    lista.querySelectorAll(".cart-item").forEach(el => el.remove());
+    totalEl.textContent = "R$ 0,00";
+    return;
+  }
+
+  lista.innerHTML = items.map(({ produto: p, quantidade: q }) => {
+    const sub = (p.preco * q).toFixed(2).replace(".", ",");
+    return `
+      <div class="cart-item">
+        <div class="cart-item-nome">${p.nome}</div>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="alterarQtd(${p.id},-1)">−</button>
+          <span style="min-width:1.5rem;text-align:center">${q}</span>
+          <button class="qty-btn" onclick="alterarQtd(${p.id},1)">+</button>
+        </div>
+        <span class="cart-subtotal">R$ ${sub}</span>
+      </div>`;
+  }).join("");
+
+  const total = items.reduce((s, { produto: p, quantidade: q }) => s + p.preco * q, 0);
+  totalEl.textContent = "R$ " + total.toFixed(2).replace(".", ",");
+}
+
+async function confirmarPedido() {
+  const itens = Object.values(carrinho).map(({ produto, quantidade }) => ({
+    produto_id: produto.id, quantidade,
+  }));
+  if (!itens.length) return;
+
+  const btn = document.getElementById("btn-confirmar");
+  btn.disabled = true; btn.textContent = "Enviando…";
+  try {
+    const pedido = await apiFetch("/pedidos", {
+      method: "POST",
+      body: JSON.stringify({
+        mesa_id:    mesaSelecionada.id,
+        itens,
+        observacao: document.getElementById("observacao").value || null,
+      }),
+    });
+    toast(`Pedido ${pedido.codigo} criado!`, "success");
+    setTimeout(voltarMesas, 1200);
+  } catch (e) {
+    toast(e.message, "error");
+    btn.disabled = false; btn.textContent = "✔ Confirmar Pedido";
+  }
+}
+
+function toast(msg, tipo = "success") {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.className = `toast ${tipo}`; el.style.display = "block";
+  setTimeout(() => { el.style.display = "none"; }, 3000);
+}
+
+carregarMesas();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.py" },
+    { "src": "/static/(.*)", "dest": "/frontend/static/$1" },
+    { "src": "/recepcao/?.*", "dest": "/frontend/recepcao/index.html" },
+    { "src": "/producao/?.*", "dest": "/frontend/producao/index.html" },
+    { "src": "/expedicao/?.*", "dest": "/frontend/expedicao/index.html" },
+    { "src": "/dashboard/?.*", "dest": "/frontend/dashboard/index.html" },
+    { "src": "/cadastro/?.*",  "dest": "/frontend/cadastro/index.html" },
+    { "src": "/(.*)",          "dest": "/frontend/index.html" }
+  ]
+}

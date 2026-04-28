@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Produção — Cachoeira Bar</title>
+  <link rel="stylesheet" href="../static/style.css">
+</head>
+<body class="page-wrap">
+
+<nav>
+  <span class="logo">🍺 Cachoeira Bar</span>
+  <span class="spacer"></span>
+  <span class="user-info" id="user-info"></span>
+  <button class="btn-logout" onclick="AUTH.logout()">Sair</button>
+</nav>
+
+<main>
+  <div class="flex items-center justify-between" style="margin-bottom:1rem">
+    <h1>Produção</h1>
+    <div data-rt-status style="font-size:.75rem;color:var(--muted)">● Conectando…</div>
+  </div>
+
+  <div class="setor-tabs" id="setor-tabs"></div>
+  <div id="pedidos-lista"></div>
+</main>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../static/config.js"></script>
+<script src="../static/auth.js"></script>
+<script>
+AUTH.require("administrador", "cozinheiro", "churrasqueiro");
+
+const user = AUTH.getUser();
+document.getElementById("user-info").textContent = user?.nome || "";
+
+const NOMES = { balcao_01:"Balcão 01", balcao_02:"Balcão 02", balcao_03:"Balcão 03", churrasqueira:"Churrasqueira" };
+
+const SETORES_PERFIL = {
+  administrador: ["balcao_01","balcao_02","balcao_03","churrasqueira"],
+  cozinheiro:    ["balcao_01","balcao_02","balcao_03"],
+  churrasqueiro: ["churrasqueira"],
+};
+
+const setoresPermitidos = SETORES_PERFIL[user.perfil] || [];
+let setorAtivo = setoresPermitidos[0];
+let pedidos    = [];
+let timers     = {};
+
+function renderTabs() {
+  document.getElementById("setor-tabs").innerHTML = setoresPermitidos.map(s =>
+    `<button class="setor-tab ${s===setorAtivo?"active":""}" onclick="trocarSetor('${s}')">${NOMES[s]}</button>`
+  ).join("");
+}
+
+function trocarSetor(s) { setorAtivo = s; renderTabs(); carregarPedidos(); }
+
+async function carregarPedidos() {
+  clearTimers();
+  try {
+    pedidos = await apiFetch(`/producao/${setorAtivo}`);
+    renderPedidos();
+  } catch (e) { toast(e.message, "error"); }
+}
+
+function renderPedidos() {
+  const el = document.getElementById("pedidos-lista");
+  if (!pedidos.length) {
+    el.innerHTML = '<div class="empty-state">Nenhum pedido em produção neste setor ✔</div>'; return;
+  }
+  el.innerHTML = pedidos.map(p => `
+    <div class="card pedido-card" id="card-${p.setor_id}">
+      <div class="pedido-card-header">
+        <span class="pedido-codigo">${p.codigo}</span>
+        <span class="pedido-mesa">Mesa ${p.mesa}</span>
+        <span class="timer" id="timer-${p.setor_id}" data-inicio="${p.created_at}" data-estimado="${p.tempo_estimado}">00:00</span>
+        <span class="badge badge-em_producao">Em produção</span>
+      </div>
+      <div style="margin-bottom:.8rem">
+        ${p.itens.map(i => `
+          <div class="item-row">
+            <span class="item-qty">${i.quantidade}</span>
+            <span class="item-nome">${i.produto_nome}</span>
+          </div>`).join("")}
+      </div>
+      <button class="btn-success" onclick="concluirSetor(${p.setor_id})">
+        ✔ Concluir ${NOMES[setorAtivo]}
+      </button>
+    </div>`).join("");
+
+  iniciarTimers();
+}
+
+function iniciarTimers() {
+  pedidos.forEach(p => {
+    const el = document.getElementById(`timer-${p.setor_id}`);
+    if (!el) return;
+    const inicio   = new Date(p.created_at).getTime();
+    const estimado = (p.tempo_estimado || 20) * 60000;
+    timers[p.setor_id] = setInterval(() => {
+      const elapsed = Date.now() - inicio;
+      const min = Math.floor(elapsed / 60000);
+      const sec = Math.floor((elapsed % 60000) / 1000);
+      el.textContent = `${String(min).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+      el.classList.toggle("atrasado", elapsed > estimado * 1.2);
+    }, 1000);
+  });
+}
+
+function clearTimers() {
+  Object.values(timers).forEach(clearInterval);
+  timers = {};
+}
+
+async function concluirSetor(setorId) {
+  const btn = document.querySelector(`#card-${setorId} button`);
+  if (btn) { btn.disabled = true; btn.textContent = "Concluindo…"; }
+  try {
+    const pedido = await apiFetch(`/producao/setor/${setorId}/concluir`, { method: "PUT" });
+    toast(pedido.status === "pronto" ? `${pedido.codigo} — PRONTO! ✔` : `Setor concluído para ${pedido.codigo}`, "success");
+    carregarPedidos();
+  } catch (e) {
+    toast(e.message, "error");
+    if (btn) { btn.disabled = false; btn.textContent = `✔ Concluir ${NOMES[setorAtivo]}`; }
+  }
+}
+
+// Supabase Realtime: recarrega quando banco muda
+AUTH.conectarRealtime(() => carregarPedidos());
+
+function toast(msg, tipo = "success") {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.className = `toast ${tipo}`; el.style.display = "block";
+  setTimeout(() => { el.style.display = "none"; }, 3000);
+}
+
+renderTabs();
+carregarPedidos();
+</script>
+</body>
+</html>

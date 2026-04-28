@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadastro — Cachoeira Bar</title>
+  <link rel="stylesheet" href="../static/style.css">
+</head>
+<body class="page-wrap">
+
+<nav>
+  <span class="logo">🍺 Cachoeira Bar</span>
+  <a href="../recepcao/">Recepção</a>
+  <a href="../dashboard/">Dashboard</a>
+  <span class="spacer"></span>
+  <span class="user-info" id="user-info"></span>
+  <button class="btn-logout" onclick="AUTH.logout()">Sair</button>
+</nav>
+
+<main>
+  <h1>Cadastro</h1>
+
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="mudarAba('produtos')">Produtos</button>
+    <button class="admin-tab"        onclick="mudarAba('mesas')">Mesas</button>
+    <button class="admin-tab"        onclick="mudarAba('usuarios')">Usuários</button>
+  </div>
+
+  <!-- PRODUTOS -->
+  <div id="aba-produtos">
+    <div class="card" style="margin-bottom:1rem">
+      <h2 id="form-prod-titulo">Novo Produto</h2>
+      <div class="form-grid" style="margin-top:.8rem">
+        <div class="form-group"><label class="form-label">Nome</label><input type="text" id="p-nome"></div>
+        <div class="form-group">
+          <label class="form-label">Categoria</label>
+          <select id="p-categoria"><option value="almoco">Almoço</option><option value="petisco">Petisco</option><option value="bebida">Bebida</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Preço (R$)</label><input type="number" id="p-preco" step="0.01" min="0"></div>
+        <div class="form-group"><label class="form-label">Unidade</label><input type="text" id="p-unidade" value="unidade"></div>
+        <div class="form-group"><label class="form-label">Tempo preparo (min)</label><input type="number" id="p-tempo" value="15" min="1"></div>
+        <div class="form-group">
+          <label class="form-label">Setor de Produção</label>
+          <select id="p-setor">
+            <option value="balcao_01">Balcão 01</option><option value="balcao_02">Balcão 02</option>
+            <option value="balcao_03">Balcão 03</option><option value="churrasqueira">Churrasqueira</option>
+          </select>
+        </div>
+      </div>
+      <input type="hidden" id="p-editando-id">
+      <div style="display:flex;gap:.5rem;margin-top:.5rem">
+        <button class="btn-primary" onclick="salvarProduto()">Salvar</button>
+        <button class="btn-outline" onclick="cancelarEdicaoProduto()" id="btn-cancelar-prod" style="display:none">Cancelar</button>
+      </div>
+      <div class="login-err" id="prod-err"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:.8rem">Produtos Cadastrados</h2>
+      <table><thead><tr><th>Nome</th><th>Categoria</th><th>Preço</th><th>Setor</th><th>Tempo</th><th>Ações</th></tr></thead>
+      <tbody id="tabela-produtos"></tbody></table>
+    </div>
+  </div>
+
+  <!-- MESAS -->
+  <div id="aba-mesas" style="display:none">
+    <div class="card" style="margin-bottom:1rem">
+      <h2>Nova Mesa</h2>
+      <div style="display:flex;gap:.5rem;align-items:flex-end;margin-top:.8rem">
+        <div class="form-group" style="margin:0;flex:1;max-width:200px">
+          <label class="form-label">Número (ex: M31)</label>
+          <input type="text" id="m-numero" placeholder="M31">
+        </div>
+        <button class="btn-primary" onclick="criarMesa()">Adicionar</button>
+      </div>
+      <div class="login-err" id="mesa-err"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:.8rem">Mesas</h2>
+      <div class="mesas-grid" id="lista-mesas"></div>
+    </div>
+  </div>
+
+  <!-- USUÁRIOS -->
+  <div id="aba-usuarios" style="display:none">
+    <div class="card" style="margin-bottom:1rem">
+      <h2 id="form-user-titulo">Novo Usuário</h2>
+      <div class="form-grid" style="margin-top:.8rem">
+        <div class="form-group"><label class="form-label">Nome</label><input type="text" id="u-nome"></div>
+        <div class="form-group"><label class="form-label">E-mail</label><input type="email" id="u-email"></div>
+        <div class="form-group"><label class="form-label">Senha</label><input type="password" id="u-senha" placeholder="Mínimo 6 caracteres"></div>
+        <div class="form-group">
+          <label class="form-label">Perfil</label>
+          <select id="u-perfil">
+            <option value="recepcionista">Recepcionista</option><option value="cozinheiro">Cozinheiro</option>
+            <option value="churrasqueiro">Churrasqueiro</option><option value="garcom">Garçom</option>
+            <option value="administrador">Administrador</option>
+          </select>
+        </div>
+      </div>
+      <input type="hidden" id="u-editando-id">
+      <div style="display:flex;gap:.5rem;margin-top:.5rem">
+        <button class="btn-primary" onclick="salvarUsuario()">Salvar</button>
+        <button class="btn-outline" onclick="cancelarEdicaoUsuario()" id="btn-cancelar-user" style="display:none">Cancelar</button>
+      </div>
+      <div class="login-err" id="user-err"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:.8rem">Usuários</h2>
+      <table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ativo</th><th>Ações</th></tr></thead>
+      <tbody id="tabela-usuarios"></tbody></table>
+    </div>
+  </div>
+</main>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../static/config.js"></script>
+<script src="../static/auth.js"></script>
+<script>
+AUTH.require("administrador");
+document.getElementById("user-info").textContent = AUTH.getUser()?.nome || "";
+
+const NOMES_SETOR = { balcao_01:"Balcão 01", balcao_02:"Balcão 02", balcao_03:"Balcão 03", churrasqueira:"Churrasqueira" };
+const NOMES_CAT   = { almoco:"Almoço", petisco:"Petisco", bebida:"Bebida" };
+const NOMES_PERF  = { administrador:"Administrador", recepcionista:"Recepcionista", cozinheiro:"Cozinheiro", churrasqueiro:"Churrasqueiro", garcom:"Garçom" };
+
+function mudarAba(aba) {
+  ["produtos","mesas","usuarios"].forEach(a => {
+    document.getElementById(`aba-${a}`).style.display = a === aba ? "block" : "none";
+  });
+  document.querySelectorAll(".admin-tab").forEach((t, i) =>
+    t.classList.toggle("active", ["produtos","mesas","usuarios"][i] === aba)
+  );
+  if (aba === "produtos") carregarProdutos();
+  if (aba === "mesas")    carregarMesas();
+  if (aba === "usuarios") carregarUsuarios();
+}
+
+// ── Produtos ───────────────────────────────────────────────────────────────
+async function carregarProdutos() {
+  const lista = await apiFetch("/produtos");
+  document.getElementById("tabela-produtos").innerHTML = lista.map(p => `
+    <tr>
+      <td>${p.nome}</td><td>${NOMES_CAT[p.categoria]}</td>
+      <td>R$ ${parseFloat(p.preco).toFixed(2).replace(".",",")}</td>
+      <td>${NOMES_SETOR[p.setor]}</td><td>${p.tempo_preparo} min</td>
+      <td>
+        <button class="btn-outline btn-sm" onclick="editarProduto(${p.id})">Editar</button>
+        <button class="btn-danger btn-sm"  onclick="desativarProduto(${p.id})">Remover</button>
+      </td>
+    </tr>`).join("") || '<tr><td colspan="6" class="text-muted">Nenhum produto</td></tr>';
+}
+
+async function salvarProduto() {
+  const id   = document.getElementById("p-editando-id").value;
+  const body = {
+    nome: document.getElementById("p-nome").value.trim(),
+    categoria: document.getElementById("p-categoria").value,
+    preco: parseFloat(document.getElementById("p-preco").value),
+    unidade: document.getElementById("p-unidade").value.trim(),
+    tempo_preparo: parseInt(document.getElementById("p-tempo").value),
+    setor: document.getElementById("p-setor").value,
+  };
+  if (!body.nome || isNaN(body.preco)) { document.getElementById("prod-err").textContent = "Preencha todos os campos"; return; }
+  try {
+    await apiFetch(id ? `/produtos/${id}` : "/produtos", { method: id ? "PUT" : "POST", body: JSON.stringify(body) });
+    cancelarEdicaoProduto(); carregarProdutos(); toast("Produto salvo!", "success");
+  } catch (e) { document.getElementById("prod-err").textContent = e.message; }
+}
+
+async function editarProduto(id) {
+  const lista = await apiFetch("/produtos");
+  const p = lista.find(x => x.id === id); if (!p) return;
+  document.getElementById("p-editando-id").value = id;
+  document.getElementById("p-nome").value = p.nome;
+  document.getElementById("p-categoria").value = p.categoria;
+  document.getElementById("p-preco").value = p.preco;
+  document.getElementById("p-unidade").value = p.unidade;
+  document.getElementById("p-tempo").value = p.tempo_preparo;
+  document.getElementById("p-setor").value = p.setor;
+  document.getElementById("form-prod-titulo").textContent = "Editar Produto";
+  document.getElementById("btn-cancelar-prod").style.display = "inline-block";
+  window.scrollTo(0, 0);
+}
+
+function cancelarEdicaoProduto() {
+  ["p-editando-id","p-nome","p-preco"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("p-unidade").value = "unidade"; document.getElementById("p-tempo").value = 15;
+  document.getElementById("p-categoria").value = "almoco"; document.getElementById("p-setor").value = "balcao_01";
+  document.getElementById("form-prod-titulo").textContent = "Novo Produto";
+  document.getElementById("btn-cancelar-prod").style.display = "none";
+  document.getElementById("prod-err").textContent = "";
+}
+
+async function desativarProduto(id) {
+  if (!confirm("Remover produto?")) return;
+  await apiFetch(`/produtos/${id}`, { method:"DELETE" }); carregarProdutos(); toast("Produto removido", "success");
+}
+
+// ── Mesas ──────────────────────────────────────────────────────────────────
+async function carregarMesas() {
+  const mesas = await apiFetch("/mesas");
+  document.getElementById("lista-mesas").innerHTML = mesas.map(m =>
+    `<div class="mesa-btn ${m.status}" style="font-size:.85rem">${m.numero}<span class="mesa-status">${m.status}</span></div>`
+  ).join("");
+}
+
+async function criarMesa() {
+  const numero = document.getElementById("m-numero").value.trim().toUpperCase();
+  if (!numero) return;
+  try {
+    await apiFetch("/mesas", { method:"POST", body: JSON.stringify({ numero }) });
+    document.getElementById("m-numero").value = ""; carregarMesas(); toast("Mesa adicionada!", "success");
+  } catch (e) { document.getElementById("mesa-err").textContent = e.message; }
+}
+
+// ── Usuários ───────────────────────────────────────────────────────────────
+async function carregarUsuarios() {
+  const lista = await apiFetch("/usuarios");
+  document.getElementById("tabela-usuarios").innerHTML = lista.map(u => `
+    <tr>
+      <td>${u.nome}</td><td>${u.email}</td><td>${NOMES_PERF[u.perfil] || u.perfil}</td>
+      <td>${u.ativo ? "✔" : "✘"}</td>
+      <td>
+        <button class="btn-outline btn-sm" onclick="editarUsuario(${u.id})">Editar</button>
+        ${u.ativo ? `<button class="btn-danger btn-sm" onclick="desativarUsuario(${u.id})">Desativar</button>` : ""}
+      </td>
+    </tr>`).join("") || '<tr><td colspan="5" class="text-muted">Nenhum usuário</td></tr>';
+}
+
+async function salvarUsuario() {
+  const id   = document.getElementById("u-editando-id").value;
+  const body = { nome: document.getElementById("u-nome").value.trim(), email: document.getElementById("u-email").value.trim(), perfil: document.getElementById("u-perfil").value };
+  const senha = document.getElementById("u-senha").value;
+  if (senha) body.senha = senha;
+  if (!body.nome || !body.email) { document.getElementById("user-err").textContent = "Preencha nome e email"; return; }
+  if (!id && !senha) { document.getElementById("user-err").textContent = "Informe a senha"; return; }
+  try {
+    await apiFetch(id ? `/usuarios/${id}` : "/usuarios", { method: id ? "PUT" : "POST", body: JSON.stringify(body) });
+    cancelarEdicaoUsuario(); carregarUsuarios(); toast("Usuário salvo!", "success");
+  } catch (e) { document.getElementById("user-err").textContent = e.message; }
+}
+
+async function editarUsuario(id) {
+  const lista = await apiFetch("/usuarios"); const u = lista.find(x => x.id === id); if (!u) return;
+  document.getElementById("u-editando-id").value = id; document.getElementById("u-nome").value = u.nome;
+  document.getElementById("u-email").value = u.email; document.getElementById("u-perfil").value = u.perfil;
+  document.getElementById("u-senha").value = "";
+  document.getElementById("form-user-titulo").textContent = "Editar Usuário";
+  document.getElementById("btn-cancelar-user").style.display = "inline-block"; window.scrollTo(0, 0);
+}
+
+function cancelarEdicaoUsuario() {
+  ["u-editando-id","u-nome","u-email","u-senha"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("u-perfil").value = "recepcionista";
+  document.getElementById("form-user-titulo").textContent = "Novo Usuário";
+  document.getElementById("btn-cancelar-user").style.display = "none"; document.getElementById("user-err").textContent = "";
+}
+
+async function desativarUsuario(id) {
+  if (!confirm("Desativar usuário?")) return;
+  await apiFetch(`/usuarios/${id}`, { method:"DELETE" }); carregarUsuarios(); toast("Desativado", "success");
+}
+
+function toast(msg, tipo = "success") {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.className = `toast ${tipo}`; el.style.display = "block";
+  setTimeout(() => { el.style.display = "none"; }, 3000);
+}
+
+carregarProdutos();
+</script>
+</body>
+</html>
